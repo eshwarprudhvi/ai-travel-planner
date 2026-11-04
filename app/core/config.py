@@ -27,6 +27,18 @@ class Settings(BaseSettings):
             database=self.POSTGRES_DB,
         )
 
+    @property
+    def TEST_DATABASE_URL(self) -> URL:
+        """SQLAlchemy URL for the test database (travel_planner_test)."""
+        return URL.create(
+            drivername="postgresql+asyncpg",
+            username=self.POSTGRES_USER,
+            password=self.POSTGRES_PASSWORD.get_secret_value(),
+            host=self.POSTGRES_HOST,
+            port=self.POSTGRES_PORT,
+            database="travel_planner_test",
+        )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -35,4 +47,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
