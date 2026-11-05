@@ -4,12 +4,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.infrastructure.database import get_db
 from app.integrations.geocoding import GeocodingProvider
+from app.services.destination_service import DestinationService
 from app.services.location_service import LocationResolutionService
 from app.services.trip_service import TripService
 
 
 def get_trip_service(db: AsyncSession = Depends(get_db)) -> TripService:
     return TripService(db)
+
+
+def get_destination_service(db: AsyncSession = Depends(get_db)) -> DestinationService:
+    return DestinationService(db)
 
 
 def get_geocoding_provider(request: Request) -> GeocodingProvider:

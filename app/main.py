@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import APIRouter, FastAPI
 
+from app.api.routes.destinations import router as destinations_router
 from app.api.routes.health import router as health_router
 from app.api.routes.locations import router as locations_router
 from app.api.routes.trips import router as trips_router
@@ -50,6 +51,7 @@ api_v1_router = APIRouter(prefix="/api/v1")
 api_v1_router.include_router(health_router)
 api_v1_router.include_router(trips_router)
 api_v1_router.include_router(locations_router)
+api_v1_router.include_router(destinations_router)
 
 app.include_router(api_v1_router)
 

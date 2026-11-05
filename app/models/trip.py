@@ -17,7 +17,7 @@ class Trip(Base):
         default=uuid.uuid4,
     )
     origin: Mapped[str] = mapped_column(String(100), nullable=False)
-    destination: Mapped[str] = mapped_column(String(100), nullable=False)
+    destination: Mapped[str | None] = mapped_column(String(100), nullable=True)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     budget: Mapped[Decimal] =mapped_column(Numeric(12, 2), nullable=False)

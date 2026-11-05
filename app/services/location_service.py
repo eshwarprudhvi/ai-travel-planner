@@ -65,6 +65,16 @@ class LocationResolutionService:
         )
 
 
+def find_candidate(
+    candidates: list[GeocodingCandidate], provider_name: str, provider_place_id: str
+) -> GeocodingCandidate | None:
+    """Return the candidate with this provider identity, or None. Shared by origin and destination confirmation."""
+    for candidate in candidates:
+        if candidate.provider_name == provider_name and candidate.provider_place_id == provider_place_id:
+            return candidate
+    return None
+
+
 def _deduplicate(candidates: list[GeocodingCandidate]) -> list[GeocodingCandidate]:
     seen: set[tuple[str, str]] = set()
     unique = []

@@ -37,7 +37,7 @@ async def create_trip(
 async def list_trips(
     trip_service: TripService = Depends(get_trip_service),
 ):
-    return await trip_service.get_all_trips()
+    return await trip_service.get_all_trip_details()
 
 
 @router.get("/{trip_id}", response_model=TripDetailResponse)
@@ -45,7 +45,7 @@ async def get_trip(
     trip_id: UUID,
     trip_service: TripService = Depends(get_trip_service),
 ):
-    return await trip_service.get_trip(trip_id)
+    return await trip_service.get_trip_detail(trip_id)
 
 
 @router.put("/{trip_id}", response_model=TripDetailResponse)
@@ -54,7 +54,11 @@ async def update_trip(
     trip: TripUpdate,
     trip_service: TripService = Depends(get_trip_service),
 ):
-    return await trip_service.update_trip(trip_id, trip.model_dump())
+    return await trip_service.update_trip(
+        trip_id,
+        trip.model_dump(exclude_unset=True),
+        fields_set=trip.model_fields_set,
+    )
 
 
 @router.delete("/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
+    DestinationType,
     Location,
     LocationProviderRef,
     LocationType,
@@ -123,7 +124,8 @@ async def test_origin_and_destination_can_share_a_sequence(db_session: AsyncSess
     await save(
         db_session, trip, hyd, goa,
         TripLocation(trip=trip, location=hyd, role=TripLocationRole.ORIGIN, sequence=0),
-        TripLocation(trip=trip, location=goa, role=TripLocationRole.DESTINATION, sequence=0),
+        TripLocation(trip=trip, location=goa, role=TripLocationRole.DESTINATION, sequence=0,
+                     destination_type=DestinationType.PRIMARY),
     )
 
 

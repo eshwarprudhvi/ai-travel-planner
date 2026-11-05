@@ -4,13 +4,17 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppException
-from app.integrations.geocoding.base import GeocodingCandidate
-from app.models import Location, Trip
+from app.models import Location, Trip, TripLocation
 from app.repositories.pending_origin_store import (
     PendingOriginStore,
     default_pending_origin_store,
 )
 from app.repositories.trip_repository import TripRepository
+from app.schemas.destination import (
+    DestinationLocationResponse,
+    DestinationPreferences,
+    DestinationResponse,
+)
 from app.schemas.location import LocationCandidateResponse
 from app.schemas.trip import (
     ConfirmedLocationResponse,
@@ -20,8 +24,9 @@ from app.schemas.trip import (
     OriginStatus,
     OriginUpdateConfirmResponse,
     OriginUpdateResponse,
+    TripDetailResponse,
 )
-from app.services.location_service import LocationResolutionService
+from app.services.location_service import LocationResolutionService, find_candidate
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +65,28 @@ def _format_confirmed_location(
     )
 
 
+def _build_trip_detail(trip: Trip, destinations: list[TripLocation]) -> TripDetailResponse:
+    dest_responses = [
+        DestinationResponse.model_validate(d) for d in destinations
+    ]
+    if destinations:
+        dest_summary = ", ".join(d.location.place_name for d in destinations)
+    else:
+        dest_summary = trip.destination
+
+    return TripDetailResponse(
+        id=trip.id,
+        origin=trip.origin,
+        destination=dest_summary,
+        start_date=trip.start_date,
+        end_date=trip.end_date,
+        budget=trip.budget,
+        travelers=trip.travelers,
+        preferences=trip.preferences,
+        destinations=dest_responses,
+    )
+
+
 class TripService:
     def __init__(
         self,
@@ -85,12 +112,35 @@ class TripService:
             raise self._not_found("get", trip_id)
         return trip
 
-    async def update_trip(self, trip_id: UUID | str, trip_data: dict) -> Trip:
+    async def get_trip_detail(self, trip_id: UUID | str) -> TripDetailResponse:
+        trip = await self.get_trip(trip_id)
+        destinations = await self.repository.get_active_destinations(trip.id)
+        return _build_trip_detail(trip, destinations)
+
+    async def get_all_trip_details(self) -> list[TripDetailResponse]:
+        trips = await self.repository.get_all()
+        if not trips:
+            return []
+        trip_ids = [t.id for t in trips]
+        dest_map = await self.repository.get_active_destinations_for_trips(trip_ids)
+        return [_build_trip_detail(trip, dest_map.get(trip.id, [])) for trip in trips]
+
+    async def update_trip(
+        self, trip_id: UUID | str, trip_data: dict, fields_set: set[str] | None = None
+    ) -> TripDetailResponse:
+        if fields_set is not None and "destination" in fields_set:
+            raise AppException(
+                "Destination cannot be updated directly through this endpoint. "
+                "Use the dedicated destination workflow at /api/v1/trips/{trip_id}/destinations.",
+                status_code=400,
+            )
+
         trip = await self.repository.update(trip_id, trip_data)
         if trip is None:
             raise self._not_found("update", trip_id)
         logger.info("Trip updated: trip_id=%s fields=%s", trip_id, sorted(trip_data))
-        return trip
+        destinations = await self.repository.get_active_destinations(trip.id)
+        return _build_trip_detail(trip, destinations)
 
     async def delete_trip(self, trip_id: UUID | str) -> None:
         deleted = await self.repository.delete(trip_id)
@@ -117,14 +167,9 @@ class TripService:
             raise AppException("Trip has no origin text to resolve", status_code=400)
 
         resolution = await location_service.resolve(trip.origin)
-        target_candidate: GeocodingCandidate | None = None
-        for cand in resolution.candidates:
-            if (
-                cand.provider_name == request.provider_name
-                and cand.provider_place_id == request.provider_place_id
-            ):
-                target_candidate = cand
-                break
+        target_candidate = find_candidate(
+            resolution.candidates, request.provider_name, request.provider_place_id
+        )
 
         if not target_candidate:
             logger.warning(
@@ -310,14 +355,9 @@ class TripService:
         if not request.confirmed:
             raise AppException("Explicit confirmation is required to update the origin", status_code=400)
 
-        target_candidate: GeocodingCandidate | None = None
-        for cand in pending.candidates:
-            if (
-                cand.provider_name == request.provider_name
-                and cand.provider_place_id == request.provider_place_id
-            ):
-                target_candidate = cand
-                break
+        target_candidate = find_candidate(
+            pending.candidates, request.provider_name, request.provider_place_id
+        )
 
         if not target_candidate:
             logger.warning(

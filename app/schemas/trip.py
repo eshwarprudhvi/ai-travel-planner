@@ -7,6 +7,7 @@ import uuid
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.location import LocationType
+from app.schemas.destination import DestinationResponse
 from app.schemas.location import LocationCandidateResponse
 
 
@@ -14,12 +15,25 @@ class TripBase(BaseModel):
     """Editable trip fields and their validation, shared by create and update."""
 
     origin: str = Field(min_length=2, max_length=100)
-    destination: str = Field(min_length=2, max_length=100)
+    destination: Optional[str] = Field(
+        default=None,
+        min_length=2,
+        max_length=100,
+        description="Optional legacy destination string; destinations should be confirmed via /destinations.",
+    )
     start_date: date
     end_date: date
     budget: Decimal = Field(gt=0, max_digits=12, decimal_places=2)  # matches Numeric(12, 2)
     travelers: int = Field(default=1, ge=1)
     preferences: Optional[str] = None
+
+    @field_validator("destination", mode="before")
+    @classmethod
+    def validate_destination_optional(cls, v):
+        if v is None:
+            return None
+        cleaned = " ".join(v.split()) if isinstance(v, str) else v
+        return cleaned or None
 
     @model_validator(mode="after")
     def validate_dates(self):
@@ -34,10 +48,31 @@ class TripCreate(TripBase):
     pass
 
 
-class TripUpdate(TripBase):
-    """Full update (PUT): the client sends every editable field."""
+class TripUpdate(BaseModel):
+    """Editable trip fields for PUT /trips/{trip_id}.
+    
+    Destination cannot be mutated through this endpoint.
+    All fields are optional to support partial updates without overwriting with None.
+    """
 
-    pass
+    model_config = ConfigDict(extra="forbid")
+
+    origin: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    destination: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    budget: Optional[Decimal] = Field(default=None, gt=0, max_digits=12, decimal_places=2)
+    travelers: Optional[int] = Field(default=None, ge=1)
+    preferences: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_dates(self):
+        if self.start_date is not None and self.end_date is not None:
+            if self.end_date <= self.start_date:
+                raise ValueError("End date must be after start date")
+            if self.start_date < date.today():
+                raise ValueError("Start date cannot be in the past")
+        return self
 
 
 class TripResponse(BaseModel):
@@ -51,12 +86,19 @@ class TripDetailResponse(BaseModel):
 
     id: uuid.UUID
     origin: str
-    destination: str
+    destination: Optional[str] = Field(
+        default=None,
+        description="Legacy summary; derived from active destinations when present, or fallback to stored string.",
+    )
     start_date: date
     end_date: date
     budget: Decimal
     travelers: int
     preferences: Optional[str] = None
+    destinations: list[DestinationResponse] = Field(
+        default_factory=list,
+        description="Active confirmed destinations in sequence order.",
+    )
 
 
 class OriginStatus(str, Enum):
