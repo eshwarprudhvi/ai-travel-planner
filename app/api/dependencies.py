@@ -13,8 +13,24 @@ def get_trip_service(db: AsyncSession = Depends(get_db)) -> TripService:
 
 
 def get_geocoding_provider(request: Request) -> GeocodingProvider:
-    # One shared provider for the whole app (created in main.py's lifespan),
-    # so its rate limiter and cache apply to every request.
+    # One shared provider for the whole app (created in main.py's lifespan).
+    provider = getattr(request.app.state, "geocoding_provider", None)
+    if provider is not None:
+        return provider
+
+    # Fallback if accessed outside lifespan (e.g. test client without lifespan)
+    import httpx
+    from app.integrations.geocoding.nominatim import NominatimGeocodingProvider
+
+    if not hasattr(request.app.state, "geocoding_provider"):
+        request.app.state.geocoding_provider = NominatimGeocodingProvider(
+            httpx.AsyncClient(),
+            base_url=settings.NOMINATIM_BASE_URL,
+            user_agent=settings.NOMINATIM_USER_AGENT,
+            timeout_seconds=settings.GEOCODING_TIMEOUT_SECONDS,
+            min_interval_seconds=settings.GEOCODING_MIN_INTERVAL_SECONDS,
+            cache_ttl_seconds=settings.GEOCODING_CACHE_TTL_SECONDS,
+        )
     return request.app.state.geocoding_provider
 
 
