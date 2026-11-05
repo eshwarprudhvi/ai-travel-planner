@@ -15,6 +15,22 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
 
+    # Geocoding (OpenStreetMap Nominatim public API)
+    # Usage policy: https://operations.osmfoundation.org/policies/nominatim/
+    # - max 1 request/second for the whole app, results must be cached
+    # - must identify the app (User-Agent); library defaults are not accepted
+    # - must be switchable off without a code change -> GEOCODING_ENABLED
+    # - no autocomplete: resolve only when the user submits a search
+    GEOCODING_ENABLED: bool = True
+    NOMINATIM_BASE_URL: str = "https://nominatim.openstreetmap.org"
+    NOMINATIM_USER_AGENT: str = (
+        "ai-travel-planner/0.1 (learning project; https://github.com/eshwarprudhvi/ai-travel-planner)"
+    )
+    GEOCODING_TIMEOUT_SECONDS: float = 5.0
+    GEOCODING_MIN_INTERVAL_SECONDS: float = 1.0
+    GEOCODING_CACHE_TTL_SECONDS: int = 86_400  # 1 day
+    GEOCODING_MAX_RESULTS: int = 5
+
     @property
     def DATABASE_URL(self) -> URL:
         """SQLAlchemy URL built from the parts above. The password stays hidden when printed."""
