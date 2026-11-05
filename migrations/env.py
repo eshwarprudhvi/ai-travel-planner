@@ -8,8 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 from app.core.config import settings
-from app.models.base import Base
-from app.models.trip import Trip  # noqa: F401  (import registers the table on Base.metadata)
+from app.models import Base  # importing the package registers every model's table
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

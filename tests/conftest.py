@@ -9,8 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.infrastructure.database import TestAsyncSessionLocal, get_db, test_engine
 from app.main import app
-from app.models.base import Base
-from app.models.trip import Trip  # noqa: F401  (registers the trips table on Base.metadata)
+from app.models import Base  # importing the package registers every model's table
 
 TEST_DB_NAME = "travel_planner_test"
 
