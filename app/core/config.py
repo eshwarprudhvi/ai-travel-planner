@@ -1,4 +1,6 @@
-from pydantic import SecretStr
+from typing import Any
+
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
@@ -30,6 +32,40 @@ class Settings(BaseSettings):
     GEOCODING_MIN_INTERVAL_SECONDS: float = 1.0
     GEOCODING_CACHE_TTL_SECONDS: int = 86_400  # 1 day
     GEOCODING_MAX_RESULTS: int = 5
+
+    # Groq LLM (Extractor)
+    GROQ_API_KEY: SecretStr | None = None
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_BASE_URL: str = "https://api.groq.com"
+    GROQ_TIMEOUT_SECONDS: float = 30.0
+    GROQ_STRICT_STRUCTURED_OUTPUTS: bool = True
+
+    @field_validator("GROQ_MODEL", mode="before")
+    @classmethod
+    def normalize_groq_model(cls, value: Any) -> str:
+        if not value:
+            return "openai/gpt-oss-120b"
+        val = str(value).strip()
+        if val == "gpt-oss-120b":
+            return "openai/gpt-oss-120b"
+        return val
+
+    @field_validator("GROQ_API_KEY", mode="before")
+    @classmethod
+    def parse_groq_api_key(cls, value: Any) -> SecretStr | None:
+        if value is None:
+            return None
+        if isinstance(value, SecretStr):
+            return value if value.get_secret_value().strip() else None
+        if isinstance(value, str):
+            val = value.strip()
+            return SecretStr(val) if val else None
+        return SecretStr(str(value).strip())
+
+    @property
+    def has_groq_api_key(self) -> bool:
+        """True if a non-empty Groq API key is configured."""
+        return self.GROQ_API_KEY is not None and bool(self.GROQ_API_KEY.get_secret_value().strip())
 
     @property
     def DATABASE_URL(self) -> URL:

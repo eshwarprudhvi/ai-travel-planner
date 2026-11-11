@@ -1,9 +1,12 @@
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from groq import AsyncGroq
+
 from app.core.config import settings
 from app.infrastructure.database import get_db
 from app.integrations.geocoding import GeocodingProvider
+from app.integrations.llm import get_groq_client
 from app.services.destination_service import DestinationService
 from app.services.location_service import LocationResolutionService
 from app.services.trip_service import TripService
@@ -47,3 +50,9 @@ def get_location_service(
         enabled=settings.GEOCODING_ENABLED,
         max_results=settings.GEOCODING_MAX_RESULTS,
     )
+
+
+def get_llm_client() -> AsyncGroq:
+    """Dependency provider for Groq LLM client."""
+    return get_groq_client()
+
