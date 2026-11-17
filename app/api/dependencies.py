@@ -9,6 +9,7 @@ from app.integrations.geocoding import GeocodingProvider
 from app.integrations.llm import get_groq_client
 from app.services.destination_service import DestinationService
 from app.services.location_service import LocationResolutionService
+from app.services.trip_extractor_service import TripExtractorService
 from app.services.trip_service import TripService
 
 
@@ -55,4 +56,10 @@ def get_location_service(
 def get_llm_client() -> AsyncGroq:
     """Dependency provider for Groq LLM client."""
     return get_groq_client()
+
+
+def get_trip_extractor_service(
+    client: AsyncGroq = Depends(get_llm_client),
+) -> TripExtractorService:
+    return TripExtractorService(client)
 
